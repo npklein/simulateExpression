@@ -67,11 +67,13 @@ def simulate_expression(betas, genotypes):
     for index, genotype in enumerate(genotypes):
         # we simulate to test the linear model y ~ cc1 + cc2 + cc1*GT + cc2 * GT
         # so expression = b1 * cc1 + b2 * cc2 + b3 * CC1 * GT + b4 * cc2 * GT
-        expression = (beta1 * cellcounts_1[index] + 
-                  beta2 * cellcounts_2[index] +
-                  beta3 * cellcounts_1[index] * genotype +
-                  beta4 * cellcounts_2[index] * genotype)
-        expression_per_sample.append(expression)
+        expression = (float(betas[0]) * cellcounts_1[index] + 
+                      float(betas[1]) * cellcounts_2[index] +
+                      float(betas[2]) * cellcounts_1[index] * float(genotype) +
+                      float(betas[3]) * cellcounts_2[index] * float(genotype))
+        # change to str so that it can be joined for writing to file later
+        expression_per_sample.append(str(expression))
+    return(expression_per_sample)
 
 if __name__ == "__main__":
     args = vars(parser.parse_args())
@@ -95,6 +97,7 @@ if __name__ == "__main__":
     cellcount_file = out_directory+'/simulated_cellcounts_'+str(now)+'.txt'
     genotype_file = out_directory+'/simulated_genotypes_'+str(now)+'.txt'
     expression_file = out_directory+'/simulated_expression_'+str(now)+'.txt'
+    snp_expression_file = out_directory+'/snp_expression_'+str(now)+'.txt'
     
     if not os.path.exists(out_directory):
         os.makedirs(out_directory)
@@ -107,21 +110,37 @@ if __name__ == "__main__":
             out.write('\nsample_'+str(index)+'\t'+str(cc1)+'\t'+str(cellcounts_2[index]))
     print('written to:',cellcount_file)
     
-    with open(genotype_file,'w') as out:
+    # do genotypes and expression in one go because for the expression values I need those specific genotypes
+    with open(genotype_file,'w') as out_genotypes, open(expression_file, 'w') as out_expression, open(snp_expression_file,'w') as out_snp_expression:
+        out_snp_expression.write('gene\tsnp')
         for sample in range(0, number_of_samples, 1):
-            out.write('\tsample_'+str(sample))
+            out_genotypes.write('\tsample_'+str(sample))
+            out_expression.write('\tsample_'+str(sample))
         x = 0
         for i in range(0, number_of_genotypes, 1):
+            # simulate genotypes
             if x >= len(maf_list):
                 x = 0
             maf = maf_list[x]
             x+=1
             genotypes = simulate_genotypes(number_of_samples, maf)
-        
-            out.write('\ngenotype_'+str(i)+'_maf'+str(maf)+'\t'+'\t'.join(genotypes))
+            snp_name = 'genotype_'+str(i)+'__maf_'+str(maf)
+            out_genotypes.write('\n'+snp_name+'\t'+'\t'.join(genotypes))
+            
+            # simulate expression
+            beta1 = beta2 = beta3 = beta4 = 1
+            betas = [beta1, beta2, beta3, beta4]
+            expression = simulate_expression(betas, genotypes)
+            gene_name = 'expression_'+str(i)+'__betas_'+str(beta1)+'_'+str(beta2)+'_'+str(beta3)+'_'+str(beta4)
+            out_expression.write('\n'+gene_name+'\t'+'\t'.join(expression))
+            
+            # write snp-gene coupling file
+            out_snp_expression.write('\n'+gene_name+'\t'+snp_name)
+            
     print('written to:',genotype_file)
-    #    beta1 = beta2 = beta3 = beta4 = 1
-    #    expressionValues = simulate_expression(betas,genotypes)
-        
-
+    print('written to:',expression_file)
+    print('written to:',snp_expression_file)
+    
+    
+    
 
